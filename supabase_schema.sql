@@ -164,7 +164,7 @@ create table if not exists public.cars (
   wilaya         text not null,
   description    text,
   images         text[] default '{}',
-  category       text default 'economical' check (category in ('economical', 'manual', 'automatic')),
+  category       text default 'economy' check (category in ('luxury', 'economy', 'van')),
   with_driver    boolean default false,
   transmission   text default 'manual' check (transmission in ('manual', 'automatic')),
   fuel           text default 'essence' check (fuel in ('essence', 'diesel', 'electrique')),
@@ -180,8 +180,11 @@ alter table public.cars add column if not exists with_driver boolean default fal
 alter table public.cars add column if not exists is_verified boolean not null default false;
 alter table public.cars add column if not exists verified_by_admin uuid references public.profiles(id) on delete set null;
 
--- Update category values from old 'economy' to 'economical' if any exist
-update public.cars set category = 'economical' where category = 'economy';
+-- Fix category constraint to use new values
+alter table public.cars drop constraint if exists cars_category_check;
+alter table public.cars add constraint cars_category_check check (category in ('luxury', 'economy', 'van'));
+-- Migrate old category values
+update public.cars set category = 'economy' where category not in ('luxury', 'economy', 'van');
 
 alter table public.cars enable row level security;
 

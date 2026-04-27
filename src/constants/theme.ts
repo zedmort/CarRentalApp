@@ -95,11 +95,15 @@ export const BOOKING_STATUS = {
 } as const;
 
 export const CAR_CATEGORIES = [
-  { id: 'economy', label: 'Économique', icon: '🚗' },
-  { id: 'sedan', label: 'Berline', icon: '🚙' },
-  { id: 'suv', label: 'SUV', icon: '🚐' },
   { id: 'luxury', label: 'Luxe', icon: '🏎️' },
-  { id: 'pickup', label: 'Pick-up', icon: '🛻' },
+  { id: 'economy', label: 'Économique', icon: '🚗' },
+  { id: 'van', label: 'Fourgon', icon: '🚐' },
+];
+
+export const DRIVER_OPTIONS = [
+  { id: 'all', label: 'Tous', icon: '🚗' },
+  { id: 'with', label: 'Avec chauffeur', icon: '👨‍✈️' },
+  { id: 'without', label: 'Sans chauffeur', icon: '🔑' },
 ];
 
 export const WILAYAS = [

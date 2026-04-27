@@ -24,6 +24,7 @@ export default function AddCarScreen() {
   const [transmission, setTransmission] = useState<'manual' | 'automatic'>('manual');
   const [fuel, setFuel] = useState<'essence' | 'diesel' | 'electrique'>('essence');
   const [category, setCategory] = useState('economy');
+  const [withDriver, setWithDriver] = useState(false);
   const [images, setImages] = useState<string[]>([]);
   const [loading, setLoading] = useState(false);
 
@@ -46,8 +47,8 @@ export default function AddCarScreen() {
       const ext = uri.split('.').pop() ?? 'jpg';
       const fileName = `${user?.id}/${Date.now()}.${ext}`;
       const response = await fetch(uri);
-      const blob = await response.blob();
-      const { error } = await supabase.storage.from('car-images').upload(fileName, blob);
+      const arrayBuffer = await response.arrayBuffer();
+      const { error } = await supabase.storage.from('car-images').upload(fileName, arrayBuffer, { contentType: 'image/jpeg', upsert: true });
       if (!error) {
         const { data } = supabase.storage.from('car-images').getPublicUrl(fileName);
         urls.push(data.publicUrl);
@@ -72,6 +73,7 @@ export default function AddCarScreen() {
       wilaya, description,
       seats: parseInt(seats),
       transmission, fuel, category,
+      with_driver: withDriver,
       images: imageUrls,
       is_available: true,
       is_verified: true,
@@ -169,6 +171,15 @@ export default function AddCarScreen() {
               <SelectChip value="essence" current={fuel} onSelect={setFuel} label="Essence" />
               <SelectChip value="diesel" current={fuel} onSelect={setFuel} label="Diesel" />
               <SelectChip value="electrique" current={fuel} onSelect={setFuel} label="Électrique" />
+            </View>
+          </Card>
+
+          {/* Driver option */}
+          <Card style={styles.section}>
+            <Text style={styles.sectionLabel}>Type de service</Text>
+            <View style={styles.chipRow}>
+              <SelectChip value={false} current={withDriver} onSelect={setWithDriver} label="🔑 Sans chauffeur" />
+              <SelectChip value={true} current={withDriver} onSelect={setWithDriver} label="👨‍✈️ Avec chauffeur" />
             </View>
           </Card>
 
