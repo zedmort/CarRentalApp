@@ -123,7 +123,6 @@ export function IdentityVerificationModal({
     } catch (err: any) {
       Alert.alert('Erreur lors de l\'envoi', err.message ?? 'Une erreur inattendue s\'est produite.');
     } finally {
-    } finally {
       setLoading(false);
     }
   };
