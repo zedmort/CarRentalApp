@@ -45,42 +45,45 @@ export function IdentityVerificationModal({
     }
   };
 
-  const uploadFile = async (uri: string, type: string) => {
-    try {
-      const { data: { user }, error: userErr } = await supabase.auth.getUser();
-      if (userErr || !user) {
-        throw new Error(`Auth error: ${userErr?.message || 'User not found'}`);
-      }
-
-      // For prototype: if storage bucket doesn't exist, create a placeholder path
-      // This allows testing the verification flow without the storage bucket
-      const fileName = `${user.id}_${type}_${Date.now()}.jpg`;
-
-      console.log('[Upload] Fetching image from URI:', uri);
-      const response = await fetch(uri);
-      if (!response.ok) {
-        throw new Error(`Fetch failed: ${response.status} ${response.statusText}`);
-      }
-      const blob = await response.blob();
-      console.log('[Upload] Blob created, size:', blob.size, 'type:', blob.type);
-
-      // Try to upload to storage
-      console.log('[Upload] Uploading to bucket=documents, path=', fileName);
-      const { data, error } = await supabase.storage
-        .from('documents')
-        .upload(fileName, blob, { contentType: 'image/jpeg', upsert: true });
-
-      if (error) {
-        console.error('[Upload] Storage upload failed:', error.message);
-        throw new Error(`Impossible d'uploader le document (${type}): ${error.message}`);
-      }
-
-      console.log('[Upload] Success:', data?.path);
-      return data.path;
-    } catch (err: any) {
-      console.error('[Upload] Exception:', err.message);
-      throw err;
+  const uploadFile = async (uri: string, type: string): Promise<string> => {
+    const { data: { user }, error: userErr } = await supabase.auth.getUser();
+    if (userErr || !user) {
+      throw new Error(`Session expirée. Veuillez vous reconnecter.`);
     }
+
+    const fileName = `${user.id}/${type}_${Date.now()}.jpg`;
+
+    // Read the file as ArrayBuffer — the only reliable method in React Native / Expo
+    const response = await fetch(uri);
+    if (!response.ok) {
+      throw new Error(`Impossible de lire le fichier (${type}).`);
+    }
+    const arrayBuffer = await response.arrayBuffer();
+
+    const { data, error } = await supabase.storage
+      .from('documents')
+      .upload(fileName, arrayBuffer, {
+        contentType: 'image/jpeg',
+        upsert: true,
+      });
+
+    if (error) {
+      // Surface the exact Supabase error so it's easy to diagnose
+      const msg = error.message ?? JSON.stringify(error);
+      if (msg.includes('Bucket not found') || msg.includes('bucket')) {
+        throw new Error(
+          "Le bucket 'documents' n'existe pas dans Supabase Storage. Créez-le dans le dashboard Supabase."
+        );
+      }
+      if (msg.includes('security') || msg.includes('policy') || msg.includes('403')) {
+        throw new Error(
+          "Permission refusée par Supabase Storage. Vérifiez les politiques RLS du bucket 'documents'."
+        );
+      }
+      throw new Error(`Upload échoué (${type}): ${msg}`);
+    }
+
+    return data.path;
   };
 
   const handleSubmit = async () => {
@@ -118,19 +121,8 @@ export function IdentityVerificationModal({
         [{ text: 'OK', onPress: () => onVerificationSubmitted?.() }]
       );
     } catch (err: any) {
-      console.error('[Submit] Full error:', err);
-      if (err.message?.includes('bucket') || err.message?.includes('404') || err.message?.includes('storage')) {
-        Alert.alert(
-          'Erreur de stockage',
-          'Le système de stockage des documents n\'est pas configuré. Contactez l\'administrateur.'
-        );
-      } else if (err.message?.includes('Auth') || err.message?.includes('auth')) {
-        Alert.alert('Erreur d\'authentification', 'Votre session a expiré. Veuillez vous reconnecter.');
-      } else if (err.message?.includes('Impossible d\'uploader')) {
-        Alert.alert('Erreur d\'upload', err.message + '\n\nVérifiez votre connexion et réessayez.');
-      } else {
-        Alert.alert('Erreur', err.message || 'Impossible d\'envoyer les documents. Vérifiez votre connexion réseau.');
-      }
+      Alert.alert('Erreur lors de l\'envoi', err.message ?? 'Une erreur inattendue s\'est produite.');
+    } finally {
     } finally {
       setLoading(false);
     }

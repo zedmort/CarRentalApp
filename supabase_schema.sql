@@ -99,7 +99,10 @@ drop policy if exists "Users can upload own documents" on storage.objects;
 create policy "Users can upload own documents"
   on storage.objects for insert
   to authenticated
-  with check (bucket_id = 'documents');
+  with check (
+    bucket_id = 'documents'
+    and (storage.foldername(name))[1] = auth.uid()::text
+  );
 
 -- Allow admins to read all documents (needed for createSignedUrl)
 drop policy if exists "Admins can read all documents" on storage.objects;
@@ -114,7 +117,7 @@ create policy "Admins can read all documents"
     )
   );
 
--- Allow users to read their own documents (file name starts with their user_id)
+-- Allow users to read their own documents (file lives inside their user_id folder)
 drop policy if exists "Users can read own documents" on storage.objects;
 create policy "Users can read own documents"
   on storage.objects for select
