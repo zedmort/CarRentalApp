@@ -94,13 +94,19 @@ export function IdentityVerificationModal({
 
     setLoading(true);
     try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error('Session expirée. Veuillez vous reconnecter.');
+
       const idPath = await uploadFile(idImage, 'id');
       const licenseFrontPath = await uploadFile(licenseFront, 'license_front');
       const licenseBackPath = await uploadFile(licenseBack, 'license_back');
 
-      // Store verification request
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) throw new Error('User not found');
+      // Delete any existing (broken/placeholder) record for this user before inserting
+      await supabase
+        .from('identity_verifications')
+        .delete()
+        .eq('user_id', user.id)
+        .eq('status', 'pending');
 
       const { error } = await supabase.from('identity_verifications').insert({
         user_id: user.id,

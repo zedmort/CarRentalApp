@@ -70,6 +70,12 @@ create policy "Users can insert their own verifications"
   on identity_verifications for insert
   with check (auth.uid() = user_id);
 
+-- Users can delete their own PENDING verification (to resubmit with corrected documents)
+drop policy if exists "Users can delete their own pending verifications" on identity_verifications;
+create policy "Users can delete their own pending verifications"
+  on identity_verifications for delete
+  using (auth.uid() = user_id and status = 'pending');
+
 -- Admin can read ALL verifications
 create policy "Admins can view all verifications"
   on identity_verifications for select
