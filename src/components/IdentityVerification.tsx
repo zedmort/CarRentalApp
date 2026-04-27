@@ -71,11 +71,8 @@ export function IdentityVerificationModal({
         .upload(fileName, blob, { contentType: 'image/jpeg', upsert: true });
 
       if (error) {
-        console.warn('[Upload] Storage upload failed (expected if bucket not created):', error.message);
-        // For prototype: allow submission with placeholder path
-        // This lets the admin panel show the verification requests for testing
-        console.log('[Upload] Using placeholder path for prototype mode');
-        return `placeholder/${fileName}`;
+        console.error('[Upload] Storage upload failed:', error.message);
+        throw new Error(`Impossible d'uploader le document (${type}): ${error.message}`);
       }
 
       console.log('[Upload] Success:', data?.path);
@@ -122,17 +119,15 @@ export function IdentityVerificationModal({
       );
     } catch (err: any) {
       console.error('[Submit] Full error:', err);
-      // Check if it's a storage bucket issue
-      if (err.message?.includes('404') || err.message?.includes('bucket')) {
+      if (err.message?.includes('bucket') || err.message?.includes('404') || err.message?.includes('storage')) {
         Alert.alert(
-          'Erreur',
-          'Le système de stockage n\'est pas configuré. Veuillez vérifier le statut de l\'application avec l\'administrateur.'
+          'Erreur de stockage',
+          'Le système de stockage des documents n\'est pas configuré. Contactez l\'administrateur.'
         );
       } else if (err.message?.includes('Auth') || err.message?.includes('auth')) {
-        Alert.alert(
-          'Erreur d\'authentification',
-          'Votre session a expiré. Veuillez vous reconnecter.'
-        );
+        Alert.alert('Erreur d\'authentification', 'Votre session a expiré. Veuillez vous reconnecter.');
+      } else if (err.message?.includes('Impossible d\'uploader')) {
+        Alert.alert('Erreur d\'upload', err.message + '\n\nVérifiez votre connexion et réessayez.');
       } else {
         Alert.alert('Erreur', err.message || 'Impossible d\'envoyer les documents. Vérifiez votre connexion réseau.');
       }

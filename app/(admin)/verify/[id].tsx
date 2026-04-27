@@ -52,21 +52,26 @@ export default function VerifyDetailScreen() {
     }
     setVerif(data);
 
-    // Get signed URLs for all 3 documents
-    const paths = {
+    // Get signed URLs for all 3 documents (works for both public and private buckets)
+    const paths: Record<string, string> = {
       id_document: data.id_document,
       license_front: data.license_front,
       license_back: data.license_back,
     };
     const urls: Record<string, string> = {};
-    Object.entries(paths).forEach(([key, path]) => {
-      if (path) {
-        const { data } = supabase.storage
+    await Promise.all(
+      Object.entries(paths).map(async ([key, path]) => {
+        if (!path || path.startsWith('placeholder/')) return;
+        const { data: signedData, error } = await supabase.storage
           .from('documents')
-          .getPublicUrl(path);
-        if (data?.publicUrl) urls[key] = data.publicUrl;
-      }
-    });
+          .createSignedUrl(path, 60 * 60); // 1-hour expiry
+        if (error) {
+          console.warn(`[Admin] Cannot get signed URL for ${key}:`, error.message);
+          return;
+        }
+        if (signedData?.signedUrl) urls[key] = signedData.signedUrl;
+      })
+    );
     setImageUrls(urls);
     setLoading(false);
   };
@@ -186,18 +191,21 @@ export default function VerifyDetailScreen() {
           label="Carte nationale d'identité"
           icon="card-account-details-outline"
           url={imageUrls.id_document}
+          rawPath={verif.id_document}
           onPress={() => setPreviewImg(imageUrls.id_document)}
         />
         <DocImage
           label="Permis de conduire (recto)"
           icon="card-text-outline"
           url={imageUrls.license_front}
+          rawPath={verif.license_front}
           onPress={() => setPreviewImg(imageUrls.license_front)}
         />
         <DocImage
           label="Permis de conduire (verso)"
           icon="card-text-outline"
           url={imageUrls.license_back}
+          rawPath={verif.license_back}
           onPress={() => setPreviewImg(imageUrls.license_back)}
         />
 
@@ -298,7 +306,8 @@ function InfoRow({ icon, label, value }: { icon: any; label: string; value: stri
   );
 }
 
-function DocImage({ label, icon, url, onPress }: { label: string; icon: any; url?: string; onPress: () => void }) {
+function DocImage({ label, icon, url, rawPath, onPress }: { label: string; icon: any; url?: string; rawPath?: string; onPress: () => void }) {
+  const isPlaceholder = rawPath?.startsWith('placeholder/');
   return (
     <View style={styles.docCard}>
       <View style={styles.docHeader}>
@@ -315,8 +324,16 @@ function DocImage({ label, icon, url, onPress }: { label: string; icon: any; url
         </TouchableOpacity>
       ) : (
         <View style={styles.docPlaceholder}>
-          <MaterialCommunityIcons name="image-off-outline" size={28} color={Colors.textMuted} />
-          <Text style={styles.docPlaceholderText}>Document non disponible</Text>
+          <MaterialCommunityIcons
+            name={isPlaceholder ? 'upload-off-outline' : 'image-off-outline'}
+            size={28}
+            color={isPlaceholder ? Colors.warning : Colors.textMuted}
+          />
+          <Text style={[styles.docPlaceholderText, isPlaceholder && { color: Colors.warning }]}>
+            {isPlaceholder
+              ? "Document non téléchargé (erreur lors de l'envoi)"
+              : 'Document non disponible'}
+          </Text>
         </View>
       )}
     </View>

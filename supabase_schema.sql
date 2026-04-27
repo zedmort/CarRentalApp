@@ -58,6 +58,8 @@ alter table public.identity_verifications enable row level security;
 -- Drop old policies if they exist
 drop policy if exists "Users can view their own verifications" on identity_verifications;
 drop policy if exists "Users can insert their own verifications" on identity_verifications;
+drop policy if exists "Admins can view all verifications" on identity_verifications;
+drop policy if exists "Admins can update verifications" on identity_verifications;
 
 -- Create updated policies
 create policy "Users can view their own verifications"
@@ -67,6 +69,60 @@ create policy "Users can view their own verifications"
 create policy "Users can insert their own verifications"
   on identity_verifications for insert
   with check (auth.uid() = user_id);
+
+-- Admin can read ALL verifications
+create policy "Admins can view all verifications"
+  on identity_verifications for select
+  using (
+    exists (
+      select 1 from public.profiles
+      where id = auth.uid() and role = 'admin'
+    )
+  );
+
+-- Admin can update verification status (approve / reject)
+create policy "Admins can update verifications"
+  on identity_verifications for update
+  using (
+    exists (
+      select 1 from public.profiles
+      where id = auth.uid() and role = 'admin'
+    )
+  );
+
+-- ── STORAGE: documents bucket ────────────────────────────────────
+-- Run these after creating the 'documents' bucket in the dashboard.
+-- Make sure the bucket is set to PRIVATE (not public).
+
+-- Allow authenticated users to upload their own documents
+drop policy if exists "Users can upload own documents" on storage.objects;
+create policy "Users can upload own documents"
+  on storage.objects for insert
+  to authenticated
+  with check (bucket_id = 'documents');
+
+-- Allow admins to read all documents (needed for createSignedUrl)
+drop policy if exists "Admins can read all documents" on storage.objects;
+create policy "Admins can read all documents"
+  on storage.objects for select
+  to authenticated
+  using (
+    bucket_id = 'documents'
+    and exists (
+      select 1 from public.profiles
+      where id = auth.uid() and role = 'admin'
+    )
+  );
+
+-- Allow users to read their own documents (file name starts with their user_id)
+drop policy if exists "Users can read own documents" on storage.objects;
+create policy "Users can read own documents"
+  on storage.objects for select
+  to authenticated
+  using (
+    bucket_id = 'documents'
+    and (storage.foldername(name))[1] = auth.uid()::text
+  );
 
 -- Auto-create profile on signup
 create or replace function public.handle_new_user()
